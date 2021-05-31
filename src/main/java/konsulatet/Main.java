@@ -49,20 +49,12 @@ public class Main implements AutoCloseable {
 
   private void check0() {
     while (!closed) {
-      appointmentChecker
-          .offices()
-          .forEach(
-              (office, url) -> {
-                log.info("Checking for appointments at {}", office);
-                var maybeAvailable = appointmentChecker.checkappointments(office);
-                if (maybeAvailable) {
-                  log.info("Appointments might be available at {}, notifying!", office);
-                  smsSender.sendSMS(
-                      office, "Appointments might be available at " + office + ", check at " + url);
-                } else {
-                  log.info("No appointments available at {}", office);
-                }
-              });
+      log.info("Checking for appointments");
+      appointmentChecker.checkappointments(
+          office -> {
+            log.info("Appointments might be available at {}, notifying!", office);
+            smsSender.sendSMS(office, "Appointments might be available at " + office);
+          });
       Uninterruptibles.sleepUninterruptibly(30, TimeUnit.SECONDS);
     }
   }

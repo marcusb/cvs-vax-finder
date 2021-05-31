@@ -25,3 +25,7 @@ hs_err_pid*
 target/
 hardcopy.*
 screenlog.*
+
+sms-sent
+*.iml
+.idea/

@@ -7,7 +7,7 @@ import org.junit.Test;
 public class SmsSenderTest {
 
   @Test
-  public void testSend() throws IOException {
+  public void testSend() {
     Assume.assumeTrue(SmsSender.isConfigured());
     var sender = new SmsSender();
     sender.sendSMS("foo", "bar");

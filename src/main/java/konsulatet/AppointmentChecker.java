@@ -1,19 +1,20 @@
 package konsulatet;
 
-import static java.util.stream.Collectors.toList;
+import static org.openqa.selenium.support.ui.ExpectedConditions.elementToBeClickable;
+import static org.openqa.selenium.support.ui.ExpectedConditions.visibilityOfElementLocated;
 
 import io.github.bonigarcia.wdm.WebDriverManager;
 import java.lang.invoke.MethodHandles;
-import java.util.Map;
+import java.util.List;
+import java.util.function.Consumer;
 import org.openqa.selenium.By;
 import org.openqa.selenium.ElementClickInterceptedException;
+import org.openqa.selenium.Keys;
 import org.openqa.selenium.NoSuchElementException;
 import org.openqa.selenium.StaleElementReferenceException;
 import org.openqa.selenium.WebDriver;
-import org.openqa.selenium.WebElement;
-import org.openqa.selenium.chrome.ChromeDriver;
-import org.openqa.selenium.chrome.ChromeOptions;
-import org.openqa.selenium.support.ui.ExpectedConditions;
+import org.openqa.selenium.firefox.FirefoxDriver;
+import org.openqa.selenium.firefox.FirefoxOptions;
 import org.openqa.selenium.support.ui.Select;
 import org.openqa.selenium.support.ui.WebDriverWait;
 import org.slf4j.Logger;
@@ -23,20 +24,47 @@ class AppointmentChecker implements AutoCloseable {
 
   private static final Logger log = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
-  private static final By VISERINGSTYP = By.id("viseringstyp");
-  private static final By ANTALPERSONER = By.id("antalpersoner");
-  private static final By FORTSATT = By.name("fortsatt");
-  private static final By TIDSBOKNING_PANEL = By.className("tidsbokningPanel");
+  private static final By MAKE_RESERVATION = By.id("cl_Dj-9");
+  private static final By NEXT_BTN = By.id("action_7");
+  private static final By CANCEL_RESERVATION_RADIOBTN =
+      By.xpath(".//input[contains(@class, 'FastComboButtonItem_CANCEL')]");
+  private static final By TXN_TYPE_SEL = By.tagName("select").className("DFI");
+  private static final By SELECT_DATE_LINK = By.className("IconCaptionText");
+  private static final By LOCATION_SEL = By.tagName("select").id("Dc_1-9");
+  private static final By DATE_CELL = By.className("TDC");
+  private static final By NOT_YET_AVAILABLE =
+      By.xpath(
+          ".//td[contains(@class, 'TDC')][contains(@class, ' Field ')][contains(@style, 'F1F1F1')]");
+  private static final By UNAVAILABLE_DATES =
+      By.xpath(
+          ".//td[contains(@class, 'TDC')][contains(@class, ' Field ')][contains(@style, '746d40')]");
+  private static final By AVAILABLE_DATES =
+      By.xpath(
+          ".//td[contains(@class, 'TDC')][contains(@class, ' Field ')][contains(@style, 'CBFFCC')]");
+  private static final By NEXT_MONTH = By.id("cl_Dc_1-r");
 
-  public static final String KONSULATET_NYC = "konsulatet-nyc";
-  public static final String AMBASSADEN_DC = "ambassaden-dc";
+  private static final String URL = "https://atlas-myrmv.massdot.state.ma.us/myrmv/_/";
 
-  private static final Map<String, String> offices =
-      Map.of(
-          KONSULATET_NYC,
-              "https://www.migrationsverket.se/ansokanbokning/valjtyp?enhet=U0766&sprak=en",
-          AMBASSADEN_DC,
-              "https://www.migrationsverket.se/ansokanbokning/valjtyp?enhet=U1075&sprak=en");
+  // comment out as appropriate
+  private static final List<String> OFFICES =
+      List.of(
+          "Brockton RMV",
+          "Danvers RMV",
+          "Fall River RMV",
+          "Haymarket RMV",
+          "Lawrence RMV",
+          "Leominster RMV",
+          "Martha's Vineyard RMV",
+          "Nantucket RMV",
+          "New Bedford RMV",
+          "North Adams RMV",
+          "Pittsfield RMV",
+          "Plymouth RMV",
+          "Revere RMV",
+          "South Yarmouth RMV",
+          "Springfield RMV",
+          "Watertown RMV",
+          "Worcester RMV");
 
   private final WebDriver driver;
 
@@ -44,11 +72,10 @@ class AppointmentChecker implements AutoCloseable {
     this(createDriver());
   }
 
-  static ChromeDriver createDriver() {
-    WebDriverManager.chromedriver().setup();
-    ChromeOptions options = new ChromeOptions();
-    options.addArguments("--headless");
-    return new ChromeDriver(options);
+  static WebDriver createDriver() {
+    WebDriverManager.firefoxdriver().setup();
+    FirefoxOptions options = new FirefoxOptions().setHeadless(true);
+    return new FirefoxDriver(options);
   }
 
   public AppointmentChecker(WebDriver driver) {
@@ -60,62 +87,109 @@ class AppointmentChecker implements AutoCloseable {
     driver.quit();
   }
 
-  Map<String, String> offices() {
-    return offices;
-  }
+  void checkappointments(Consumer<String> notifier) {
+    driver.manage().deleteAllCookies();
 
-  boolean checkappointments(String office) {
     var wait =
         new WebDriverWait(driver, 300, 10)
             .ignoring(StaleElementReferenceException.class)
             .ignoring(ElementClickInterceptedException.class)
             .ignoring(NoSuchElementException.class);
 
-    var url = offices.get(office);
-    log.debug("opening {} url: {}", office, url);
-    driver.get(url);
+    log.debug("opening url: {}", URL);
+    driver.get(URL);
 
-    log.debug("waiting for visit type selector");
-    var viseringsTyp = wait.until(ExpectedConditions.visibilityOfElementLocated(VISERINGSTYP));
-    var selectViseringsTyp = new Select(viseringsTyp);
-    log.debug("selecting passport visit");
-    selectViseringsTyp.selectByVisibleText("apply for Swedish passport or id document");
-
-    log.debug("waiting for nr of persons selector");
-    var antalPersoner = wait.until(ExpectedConditions.visibilityOfElementLocated(ANTALPERSONER));
-    var selectAntalPersoner = new Select(antalPersoner);
-    log.debug("selecting 1 person");
-    selectAntalPersoner.selectByVisibleText("1");
-
+    log.debug("waiting for main menu");
+    var mkReservationBtn = wait.until(elementToBeClickable(MAKE_RESERVATION));
     wait.until(
         d -> {
-          log.debug("looking for continue button");
-          var fortsatt = driver.findElement(FORTSATT);
-          log.debug("clicking continue button");
-          fortsatt.click();
+          log.debug("clicking Make Reservation");
+          mkReservationBtn.click();
           return true;
         });
 
-    log.debug("waiting for booking panel");
-    wait.until(ExpectedConditions.visibilityOfElementLocated(TIDSBOKNING_PANEL));
-    log.debug("looking for booking errors");
-    var errors = driver.findElements(By.cssSelector(".feedbackPanelERROR > .feedbackPanelERROR"));
-    if (errors.isEmpty()) {
-      log.debug("no booking errors, success!");
-      return true;
+    try {
+      Thread.sleep(1000);
+    } catch (InterruptedException e) {
+      log.debug("sleep interrupted");
+    }
+    log.debug("looking for Next button");
+    var next = wait.until(visibilityOfElementLocated(NEXT_BTN));
+    try {
+      Thread.sleep(1000);
+    } catch (InterruptedException e) {
+      e.printStackTrace();
+    }
+    log.debug("clicking Next button");
+    next.click();
+
+    try {
+      Thread.sleep(1000);
+    } catch (InterruptedException e) {
+      e.printStackTrace();
+    }
+    log.debug("waiting for Make Reservation button");
+    var makeResBtn = wait.until(visibilityOfElementLocated(CANCEL_RESERVATION_RADIOBTN));
+    try {
+      Thread.sleep(1000);
+    } catch (InterruptedException e) {
+      e.printStackTrace();
+    }
+    log.debug("selecting Make Reservation");
+    makeResBtn.sendKeys(Keys.LEFT);
+
+    log.debug("waiting for transaction type selector");
+    var txnTypeSel = wait.until(visibilityOfElementLocated(TXN_TYPE_SEL));
+    var selectTxnType = new Select(txnTypeSel);
+    log.debug("selecting Apply for Learner's permit");
+    selectTxnType.selectByValue("TXN01");
+
+    log.debug("clicking Select Date");
+    var selectDate = driver.findElement(SELECT_DATE_LINK);
+    selectDate.click();
+
+    try {
+      Thread.sleep(1000);
+    } catch (InterruptedException e) {
+      e.printStackTrace();
     }
 
-    var errorMessages = errors.stream().map(WebElement::getText).collect(toList());
-    log.debug("found appointment errors: {}", errorMessages);
-    var foundNoMoreSlotsError =
-        errorMessages.stream().anyMatch(m -> m.contains("no available time slots"));
+    for (var office : OFFICES) {
+      var locSel = wait.until(visibilityOfElementLocated(LOCATION_SEL));
+      var locSelect = new Select(locSel);
+      log.debug("checking {}", office);
+      locSelect.selectByVisibleText(office);
 
-    if (!foundNoMoreSlotsError) {
-      log.debug("did not find no more slots error, maybe success?");
-      return true;
+      log.debug("waiting for date picker");
+      wait.until(visibilityOfElementLocated(DATE_CELL));
+
+      if (hasAvailability()) {
+        notifier.accept(office);
+      }
+
+      log.debug("clicking next month");
+      var nextMonth = wait.until(visibilityOfElementLocated(NEXT_MONTH));
+      nextMonth.click();
+      try {
+        Thread.sleep(1000);
+      } catch (InterruptedException e) {
+        e.printStackTrace();
+      }
+      if (hasAvailability()) {
+        notifier.accept(office);
+      }
     }
+  }
 
-    log.debug("found no more slots error");
-    return false;
+  private boolean hasAvailability() {
+    var unavailable = driver.findElements(UNAVAILABLE_DATES);
+    var available = driver.findElements(AVAILABLE_DATES);
+    var notYetAvailable = driver.findElements(NOT_YET_AVAILABLE);
+    log.debug(
+        "available={} unavailable={} not-yet={}",
+        available.size(),
+        unavailable.size(),
+        notYetAvailable.size());
+    return !available.isEmpty();
   }
 }

@@ -34,9 +34,6 @@ public class AppointmentCheckerTest {
   @Test
   public void checkappointments() {
     var c = new AppointmentChecker();
-    for (String office : c.offices().keySet()) {
-      var available = c.checkappointments(office);
-      log.info("office appts available: {}", available);
-    }
+    c.checkappointments(log::info);
   }
 }
