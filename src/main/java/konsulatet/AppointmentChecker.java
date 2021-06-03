@@ -155,10 +155,14 @@ class AppointmentChecker implements AutoCloseable {
     }
 
     for (var office : OFFICES) {
-      var locSel = wait.until(visibilityOfElementLocated(LOCATION_SEL));
-      var locSelect = new Select(locSel);
       log.debug("checking {}", office);
-      locSelect.selectByVisibleText(office);
+      wait.until(
+          d -> {
+            var locSel = driver.findElement(LOCATION_SEL);
+            var locSelect = new Select(locSel);
+            locSelect.selectByVisibleText(office);
+            return true;
+          });
 
       log.debug("waiting for date picker");
       wait.until(visibilityOfElementLocated(DATE_CELL));
