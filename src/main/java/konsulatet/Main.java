@@ -5,6 +5,7 @@ import com.google.common.util.concurrent.Uninterruptibles;
 import java.lang.invoke.MethodHandles;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
+import org.openqa.selenium.TimeoutException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -50,12 +51,17 @@ public class Main implements AutoCloseable {
   private void check0() {
     while (!closed) {
       log.info("Checking for appointments");
-      appointmentChecker.checkappointments(
-          office -> {
-            log.info("Appointments might be available at {}, notifying!", office);
-            smsSender.sendSMS(office, "Appointments might be available at " + office);
-          });
-      Uninterruptibles.sleepUninterruptibly(30, TimeUnit.SECONDS);
+      try {
+        appointmentChecker.checkappointments(
+            (date, store) -> {
+              log.info("Appointment might be available on {}, notifying!", date);
+              smsSender.sendSMS(
+                  date + store, String.format("Available appointments on %s at %s", date, store));
+            });
+      } catch (final TimeoutException e) {
+        log.info("web page timed out, will try again");
+      }
+      Uninterruptibles.sleepUninterruptibly(5, TimeUnit.MINUTES);
     }
   }
 }

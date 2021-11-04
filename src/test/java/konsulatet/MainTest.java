@@ -4,14 +4,13 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
 import java.util.Map;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Consumer;
+import java.util.function.BiConsumer;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -55,12 +54,12 @@ public class MainTest {
   public void shouldSendSmsWhenApptFound() {
     Mockito.doAnswer(
             inv -> {
-              Consumer<String> notifier = inv.getArgument(0);
-              notifier.accept("Watertown RMV");
+              BiConsumer<String, String> notifier = inv.getArgument(0);
+              notifier.accept("monday", "CVS");
               return null;
             })
         .when(appointmentChecker)
-        .checkappointments(any(Consumer.class));
+        .checkappointments(any(BiConsumer.class));
 
     f = CompletableFuture.runAsync(() -> main.check());
     verify(smsSender, timeout(30_000).atLeastOnce())
@@ -71,7 +70,7 @@ public class MainTest {
   public void shouldSendSmsWhenCrashing() {
     Mockito.doThrow(new RuntimeException("expected exception"))
         .when(appointmentChecker)
-        .checkappointments(any(Consumer.class));
+        .checkappointments(any(BiConsumer.class));
 
     f = CompletableFuture.runAsync(() -> main.check());
     verify(smsSender, timeout(30_000).atLeastOnce()).sendCrash(anyString());
@@ -81,12 +80,12 @@ public class MainTest {
   public void shouldSendSmsWhenStarting() {
     Mockito.doAnswer(
             inv -> {
-              Consumer<String> notifier = inv.getArgument(0);
-              notifier.accept("Watertown RMV");
+              BiConsumer<String, String> notifier = inv.getArgument(0);
+              notifier.accept("monday", "CVS");
               return null;
             })
         .when(appointmentChecker)
-        .checkappointments(any(Consumer.class));
+        .checkappointments(any(BiConsumer.class));
 
     f = CompletableFuture.runAsync(() -> main.check());
     verify(smsSender, timeout(30_000).atLeastOnce()).sendHello();
